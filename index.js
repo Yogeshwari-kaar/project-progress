@@ -6,78 +6,41 @@ const fs = require("fs");
 const {
   masterChangeHistory,
 } = require("../Ktern-new-repo/ktern-backend-main-v2/models/project-management/workitem-history.model");
+const { match } = require("assert");
 
-const projectProgressCalculation = (taskStruct, projectSettings, dbStatus) => {
+const projectProgressCalculation = (taskStruct, projectSettings, dbStatus = []) => {
   taskStruct.map((dt) => {
-    dt.id = dt._id ? dt._id : dt.id;
-    dt.plannedEndDate = dt.plannedTo;
-    dt.plannedStartDate = dt.plannedFrom;
+    dt.id = dt._id || dt.id;
+    dt.plannedEndDate = dt.plannedTo || dt.plannedEndDate;
+    dt.plannedStartDate = dt.plannedFrom || dt.plannedStartDate;
 
-    if (dt.plannedEndDate && dt.plannedStartDate) {
-      if (dt.plannedEndDate) {
-        if (dt.plannedEndDate === undefined) {
-          dt.plannedEndDate = "";
-        }
-      } else if (dt.plannedStartDate) {
-        if (dt.plannedStartDate === undefined) {
-          dt.plannedStartDate = "";
-        }
-      }
-    } else if (dt.plannedFrom && dt.plannedTo) {
-      if (dt.plannedTo) {
-        if (dt.plannedTo === undefined) {
-          dt.plannedEndDate = "";
-        }
-      } else if (dt.plannedFrom) {
-        if (dt.plannedFrom === undefined) {
-          dt.plannedStartDate = "";
-        }
-      }
+    if (dt.plannedEndDate === undefined || null) {
+      dt.plannedEndDate = "";
+    }
+
+    if (dt.plannedStartDate === undefined || null) {
+      dt.plannedStartDate = "";
     }
   });
 
   if (projectSettings.length > 0) {
     var projectSettings = projectSettings[0];
   }
-
-  var calcType = projectSettings.milestonecalc;
-  var taskCount = taskStruct.length;
-
-  if (calcType === "taskcount") {
-    taskStruct = calculateActualProgress(taskStruct, projectSettings, dbStatus);
-  } else if (calcType === "milestonepercentage") {
-    // taskStruct = calculatePercentageSplit(taskStruct, calcType);
-    taskStruct = calculateActualProgress(taskStruct, projectSettings, dbStatus);
-  } else if (calcType === "weightage") {
-    // taskStruct = calculatePercentageSplit(taskStruct, calcType);
-    taskStruct = calculateActualProgress(taskStruct, projectSettings, dbStatus);
-  }
+  taskStruct = calculateActualProgress(taskStruct, projectSettings, dbStatus);
   return taskStruct;
 };
 
 function findImmediateChildTasks(taskStruct, taskid) {
-  taskid = taskid;
-  var childTasks = [];
+  let childTasks = [];
+  let taskIdStr = taskid.toString();
 
   taskStruct.forEach((element) => {
-    if (element.parent) {
-      if (element.parent.toString() === taskid.toString()) {
-        childTasks.push(element);
-      }
-    } else if (element.parentID) {
-      if (element.parentID.toString() === taskid.toString()) {
-        childTasks.push(element);
-      }
-    } else if (element.parentKey) {
-      if (element.parentKey.toString() === taskid.toString()) {
-        childTasks.push(element);
-      }
-    } else if (element.parentid) {
-      if (element.parentid.toString() === taskid.toString()) {
-        childTasks.push(element);
-      }
+    let parentId = element.parent || element.parentID || element.parentKey || element.parentid;
+    if (parentId && parentId.toString() === taskIdStr) {
+      childTasks.push(element);
     }
   });
+
   return childTasks;
 }
 
@@ -127,11 +90,6 @@ function calculateActualProgress(taskStruct, projectSettings, dbStatus = []) {
   var calcType = projectSettings.milestonecalc;
 
   var taskCount = taskStruct.length;
-  var result = {};
-
-  // if (taskStruct.isLeaf === undefined) {
-  //   taskStruct = formulateIsLeafTask(taskStruct);
-  // }
 
   if (dbStatus.length > 0) {
     var activeStatusIDs = dbStatus
@@ -147,11 +105,12 @@ function calculateActualProgress(taskStruct, projectSettings, dbStatus = []) {
 
   for (i = taskCount - 1; i >= 0; i--) {
     var percentage = taskStruct[i].percentage ? taskStruct[i].percentage : 0;
-    if (taskStruct[i].isLeaf === true || taskStruct[i].isleaf === true) {
+    taskStruct[i].isLeaf = taskStruct[i].isLeaf ? taskStruct[i].isLeaf : taskStruct[i].isleaf;
+    if (taskStruct[i].isLeaf === true) {
       if (
         taskStruct[i].status[0]?.category === "Completed" ||
         taskStruct[i].status[0]?.category === "Approved" ||
-        completedStatusIds.includes(taskStruct[i].status.toString())
+        completedStatusIds?.includes(taskStruct[i].status.toString())
       ) {
         if (calcType === "milestonepercentage" || calcType === "weightage") {
           taskStruct[i].actualProgress =
@@ -161,7 +120,7 @@ function calculateActualProgress(taskStruct, projectSettings, dbStatus = []) {
         }
       } else if (
         taskStruct[i].status[0]?.category === "Active" ||
-        activeStatusIDs.includes(taskStruct[i].status.toString())
+        activeStatusIDs?.includes(taskStruct[i].status.toString())
       ) {
         if (projectSettings.activeTaskProgressMetric) {
           if (calcType === "milestonepercentage" || calcType === "weightage") {
@@ -206,6 +165,11 @@ function calculateActualProgress(taskStruct, projectSettings, dbStatus = []) {
 
 async function calculatePercentageSplit(taskStruct, milestonecalc) {
   taskCount = taskStruct.length;
+
+  taskStruct.forEach((dt) => {
+    dt.id = dt._id ? dt._id.toString() : dt.id.toString();
+  });
+
   if (milestonecalc === "milestonepercentage") {
     for (i = 0; i < taskCount; i++) {
       var childTasksCount;
@@ -213,6 +177,7 @@ async function calculatePercentageSplit(taskStruct, milestonecalc) {
       var percentage = taskStruct[i].percentage;
 
       childTasks = findImmediateChildTasks(taskStruct, taskid);
+
       childTasksCount = childTasks.length;
 
       if (childTasks.length > 0) {
@@ -233,10 +198,11 @@ async function calculatePercentageSplit(taskStruct, milestonecalc) {
         var percentageSplit = percentage / (childTasksCount - customPercentageCount);
 
         for (j = 0; j < childTasksCount; j++) {
+          let matchedTask = {};
           if (childTasks[j].percentageUpdate === "auto") {
-            let matchedTask = taskStruct.find(
-              (dt) => dt.id.toString() === childTasks[j].id.toString()
-            );
+            matchedTask = taskStruct.find((dt) => {
+              return dt.id.toString() === childTasks[j].id.toString();
+            });
             if (matchedTask) {
               matchedTask.percentage = percentageSplit;
             }
@@ -256,9 +222,9 @@ async function calculatePercentageSplit(taskStruct, milestonecalc) {
 
       if (childTasksCount > 0) {
         for (j = 0; j < childTasksCount; j++) {
-          let matchedTask = taskStruct.find(
-            (dt) => dt.id.toString() === childTasks[j].id.toString()
-          );
+          let matchedTask = taskStruct.find((dt) => {
+            return dt.id.toString() === childTasks[j].id.toString();
+          });
           if (matchedTask) {
             if (parentWeightage === 0) {
               matchedTask.percentage = 0;
@@ -275,26 +241,18 @@ async function calculatePercentageSplit(taskStruct, milestonecalc) {
 }
 
 async function formulateIsLeafTask(taskStruct) {
-  var refTaskIDs = [];
+  const refTaskIDs = new Set();
+
   taskStruct.forEach((dt) => {
     dt.id = dt._id.toString();
-    if (dt.parentID) {
-      refTaskIDs.push(dt.parentID.toString());
-    } else if (dt.refTaskID) {
-      refTaskIDs.push(dt.refTaskID.toString());
-    } else if (dt.parentKey) {
-      refTaskIDs.push(dt.parentKey.toString());
-    } else if (dt.parentid) {
-      refTaskIDs.push(dt.parentid.toString());
+    const parentId = dt.parentID || dt.refTaskID || dt.parentKey || dt.parentid;
+    if (parentId) {
+      refTaskIDs.add(parentId.toString());
     }
   });
 
   taskStruct.forEach((dt) => {
-    if (!refTaskIDs.includes(dt.id)) {
-      dt.isLeaf = true;
-    } else {
-      dt.isLeaf = false;
-    }
+    dt.isLeaf = !refTaskIDs.has(dt.id);
   });
 
   return taskStruct;
