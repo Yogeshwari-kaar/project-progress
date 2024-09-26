@@ -3,10 +3,6 @@ const app = express();
 
 const moment = require("moment");
 const fs = require("fs");
-const {
-  masterChangeHistory,
-} = require("../Ktern-new-repo/ktern-backend-main-v2/models/project-management/workitem-history.model");
-const { match } = require("assert");
 
 const projectProgressCalculation = (taskStruct, projectSettings, dbStatus = []) => {
   taskStruct.map((dt) => {
