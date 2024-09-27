@@ -4,7 +4,6 @@ const moment = require("moment");
 const fs = require("fs");
 
 const projectProgressCalculation = (taskStruct, projectSettings, dbStatus = []) => {
-  console.log("I am coming from local link");
   taskStruct.forEach((task) => {
     task.id = task._id || task.id;
     task.plannedEndDate = task.plannedTo || task.plannedEndDate || "";
