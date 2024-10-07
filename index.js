@@ -81,7 +81,9 @@ function calculateActualProgress(taskStruct, projectSettings, dbStatus = []) {
             ? (task.activePercentage / 100) * percentage
             : 100;
       } else if (["Active"].includes(status) || activeStatusIDs.includes(statusId)) {
-        const activePercentage = parseInt(projectSettings.activePercentage, 10) || 0;
+        const activePercentage = task.activePercentage
+          ? task.activePercentage
+          : parseInt(projectSettings.activePercentage, 10) || 0;
         task.actualProgress =
           calcType === "milestonepercentage" || calcType === "weightage"
             ? (activePercentage / 100) * percentage
