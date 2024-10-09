@@ -109,6 +109,7 @@ function calculateActualProgress(taskStruct, projectSettings, dbStatus = []) {
 async function calculatePercentageSplit(taskStruct, milestoneCalc) {
   taskStruct.forEach((task) => {
     task.id = task._id?.toString() || task.id.toString();
+    task.percentage = task.percentage ? parseFloat(task.percentage) : 0;
   });
 
   if (milestoneCalc === "milestonepercentage") {
@@ -117,8 +118,12 @@ async function calculatePercentageSplit(taskStruct, milestoneCalc) {
       const customTasks = childTasks.filter((child) => child.percentageUpdate === "manual");
       const autoTasks = childTasks.filter((child) => child.percentageUpdate === "auto");
 
-      const remainingPercentage =
-        task.percentage - customTasks.reduce((sum, child) => sum + child.percentage, 0);
+      var customPercentage = 0;
+      customTasks.forEach((dt) => {
+        customPercentage += dt.percentage;
+      });
+
+      const remainingPercentage = task.percentage - customPercentage;
       const percentageSplit = remainingPercentage / autoTasks.length;
 
       autoTasks.forEach((child) => {
