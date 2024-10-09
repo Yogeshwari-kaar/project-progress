@@ -1,6 +1,6 @@
 {
   "name": "ktern-project-progress-calculation",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Project Progress Calculation in KTern",
   "main": "index.js",
   "scripts": {
